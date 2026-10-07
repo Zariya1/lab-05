@@ -11,11 +11,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,16 +34,24 @@ fun CityListScreen(
     cities: List<City>,
     onAddCity: (City) -> Unit,
     onUpdateCity: (City, City) -> Unit,
+    onDeleteCity: (City) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var newCityName by remember { mutableStateOf("") }
     var newProvinceName by remember { mutableStateOf("") }
     var showAddCityFields by remember { mutableStateOf(false) }
+
     var selectedCity by remember { mutableStateOf<City?>(null) }
     var editedCityName by remember { mutableStateOf("") }
     var editedProvinceName by remember { mutableStateOf("") }
 
-    Column(modifier = modifier.fillMaxSize()) {
+    var deleteMode by remember { mutableStateOf(false) }
+    var cityToDelete by remember { mutableStateOf<City?>(null) }
+
+    Column(
+        modifier = modifier.fillMaxSize()
+    ) {
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.End
@@ -50,7 +60,10 @@ fun CityListScreen(
                 modifier = Modifier.padding(16.dp),
                 onClick = {
                     showAddCityFields = !showAddCityFields
+
                     if (showAddCityFields) {
+                        deleteMode = false
+                        cityToDelete = null
                         selectedCity = null
                         editedCityName = ""
                         editedProvinceName = ""
@@ -60,12 +73,14 @@ fun CityListScreen(
                 Text("+")
             }
         }
+
         if (showAddCityFields) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp)
             ) {
+
                 OutlinedTextField(
                     value = newCityName,
                     onValueChange = { newCityName = it },
@@ -81,12 +96,16 @@ fun CityListScreen(
                     label = { Text("Province") },
                     modifier = Modifier.weight(1f)
                 )
+
                 Spacer(modifier = Modifier.width(8.dp))
 
                 Button(
                     modifier = Modifier.padding(vertical = 12.dp),
                     onClick = {
-                        if (newCityName.isNotBlank() && newProvinceName.isNotBlank()) {
+                        if (
+                            newCityName.isNotBlank() &&
+                            newProvinceName.isNotBlank()
+                        ) {
                             onAddCity(
                                 City(
                                     name = newCityName,
@@ -104,12 +123,14 @@ fun CityListScreen(
                 }
             }
         }
-        if (selectedCity != null) {
+
+        if (selectedCity != null && !deleteMode) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp)
             ) {
+
                 OutlinedTextField(
                     value = editedCityName,
                     onValueChange = { editedCityName = it },
@@ -132,6 +153,7 @@ fun CityListScreen(
                     modifier = Modifier.padding(vertical = 12.dp),
                     onClick = {
                         val cityToUpdate = selectedCity
+
                         if (
                             cityToUpdate != null &&
                             editedCityName.isNotBlank() &&
@@ -155,27 +177,105 @@ fun CityListScreen(
                 }
             }
         }
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
+
+        LazyColumn(
+            modifier = Modifier.weight(1f)
+        ) {
             itemsIndexed(cities) { index, city ->
+
                 CityRow(
                     city = city,
                     onClick = {
-                        showAddCityFields = false
-                        newCityName = ""
-                        newProvinceName = ""
-                        selectedCity = city
-                        editedCityName = city.name
-                        editedProvinceName = city.province
+                        if (deleteMode) {
+                            cityToDelete = city
+                        } else {
+                            showAddCityFields = false
+                            newCityName = ""
+                            newProvinceName = ""
+
+                            selectedCity = city
+                            editedCityName = city.name
+                            editedProvinceName = city.province
+                        }
                     }
                 )
+
                 if (index < cities.lastIndex) {
                     HorizontalDivider()
                 }
             }
         }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.End
+        ) {
+            Button(
+                onClick = {
+                    deleteMode = !deleteMode
+
+                    showAddCityFields = false
+                    selectedCity = null
+                    editedCityName = ""
+                    editedProvinceName = ""
+
+                    if (!deleteMode) {
+                        cityToDelete = null
+                    }
+                }
+            ) {
+                Text(
+                    if (deleteMode) {
+                        "CANCEL DELETE"
+                    } else {
+                        "DELETE CITY"
+                    }
+                )
+            }
+        }
+    }
+
+    if (cityToDelete != null) {
+        AlertDialog(
+            onDismissRequest = {
+                cityToDelete = null
+            },
+            title = {
+                Text("Delete city?")
+            },
+            text = {
+                Text(
+                    "Delete ${cityToDelete!!.name}, ${cityToDelete!!.province}?"
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        cityToDelete?.let { city ->
+                            onDeleteCity(city)
+                        }
+
+                        cityToDelete = null
+                        deleteMode = false
+                    }
+                ) {
+                    Text("DELETE")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        cityToDelete = null
+                    }
+                ) {
+                    Text("CANCEL")
+                }
+            }
+        )
     }
 }
-
 
 @Composable
 fun CityRow(
@@ -185,9 +285,15 @@ fun CityRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(horizontal = 20.dp, vertical = 16.dp)
+            .clickable {
+                onClick()
+            }
+            .padding(
+                horizontal = 20.dp,
+                vertical = 16.dp
+            )
     ) {
+
         Text(
             text = city.name,
             fontSize = 30.sp,
@@ -213,7 +319,8 @@ fun CityListScreenPreview() {
                 City("Calgary", "AB")
             ),
             onAddCity = {},
-            onUpdateCity = { _, _ -> }
+            onUpdateCity = { _, _ -> },
+            onDeleteCity = {}
         )
     }
 }
